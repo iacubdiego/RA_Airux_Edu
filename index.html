@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>airux — La colmena por dentro</title>
+
+  <!-- Versiones fijadas: MindAR 1.2.5 + A-Frame 1.5.0 (three 0.158), la combinación probada en la v1.
+       Son scripts clásicos: tienen que cargarse antes que src/main.js (módulo). -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+  <!-- Consola en pantalla para depurar en iPhone sin Mac: abrir la URL con ?eruda -->
+  <script>
+    if (location.search.includes('eruda')) {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/eruda@3.0.1/eruda.min.js"><\/script><script>eruda.init();<\/script>');
+    }
+  </script>
+
+  <style>
+    :root {
+      --naranja: #ffb129;   /* del logo de Airux */
+      --marron: #301807;
+      --pla: #fafaf8;       /* blanco del PLA */
+      --velo: rgba(48, 24, 7, .82);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    [hidden] { display: none !important; }
+    html, body { width: 100%; height: 100%; overflow: hidden;
+      font-family: Ubuntu, "Trebuchet MS", system-ui, sans-serif; }
+    /* El fondo va SOLO en html: MindAR pone el <video> con z-index negativo y un fondo en body lo tapa */
+    html { background: #000; }
+
+    /* ── Inicio ── */
+    #inicio { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 1.3rem; padding: 2rem;
+      background: var(--pla); color: var(--marron); text-align: center; transition: opacity .35s; }
+    #inicio.oculto { opacity: 0; pointer-events: none; }
+    #inicio img { width: min(78vw, 400px); height: auto; }
+    #inicio p { max-width: 21rem; font-size: 1.05rem; line-height: 1.45; }
+    #btn-empezar { border: 0; border-radius: 2rem; padding: 1rem 1.8rem; background: var(--naranja);
+      color: var(--marron); font: inherit; font-weight: 700; font-size: 1.1rem; line-height: 1; cursor: pointer; }
+    #btn-empezar:focus-visible { outline: 3px solid var(--marron); outline-offset: 3px; }
+    #btn-empezar:disabled { opacity: .6; }
+
+    /* ── Durante la exploración ── */
+    #pista { position: fixed; left: 50%; transform: translateX(-50%); z-index: 10; pointer-events: none;
+      bottom: calc(1.5rem + env(safe-area-inset-bottom)); padding: .6rem 1.1rem; border-radius: 2rem;
+      white-space: nowrap; background: rgba(0, 0, 0, .7); color: #fff; font-size: .95rem; }
+
+    /* Contador: un chip por grupo, arriba al centro */
+    #contador { position: fixed; top: calc(.7rem + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+      z-index: 10; display: flex; gap: .4rem; pointer-events: none; }
+    .cont { padding: .35rem .8rem; border-radius: 2rem; font-size: .9rem; white-space: nowrap; background: var(--naranja); color: var(--marron);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .3); }
+    .cont[data-grupo="airux"] { background: var(--marron); color: var(--naranja); }
+    .cont b { font-variant-numeric: tabular-nums; }
+    .cont.suma { animation: suma .5s ease-out; }
+    .cont.completo::after { content: " ✓"; }
+    @keyframes suma { 40% { transform: scale(1.25); } }
+    @media (prefers-reduced-motion: reduce) { .cont.suma { animation: none; } }
+
+    /* Ficha: sube desde abajo, texto grande para que se lea a distancia en modo grupo */
+    #ficha { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; max-height: 46vh; overflow-y: auto;
+      padding: 1rem 1.2rem calc(1.1rem + env(safe-area-inset-bottom)); border-radius: 1.1rem 1.1rem 0 0;
+      background: var(--pla); color: var(--marron); box-shadow: 0 -4px 18px rgba(0, 0, 0, .35);
+      border-top: .4rem solid var(--naranja); transform: translateY(100%); transition: transform .25s ease-out; }
+    #ficha[data-grupo="airux"] { border-top-color: var(--marron); }
+    #ficha.abierta { transform: none; }
+    #ficha header { display: flex; align-items: center; gap: .8rem; }
+    #ficha h2 { font-size: 1.5rem; line-height: 1.15; flex: 1; }
+    /* Foto de la pieza: aparece cuando llega la copia que vuela desde la colmena */
+    .ficha-foto { flex: none; width: 4.6rem; height: 4.6rem; border-radius: 50%; background: #ffeccb; }
+    .ficha-foto img { width: 100%; height: 100%; opacity: 0; transition: opacity .25s; }
+    .ficha-foto.visible img { opacity: 1; }
+    .ficha-cerrar { border: 0; background: none; color: var(--marron); font-size: 1.4rem; padding: .2rem .5rem; }
+    .ficha-simple { font-size: 1.2rem; line-height: 1.4; margin-top: .5rem; max-width: 34rem; }
+    .ficha-datos { margin-top: .8rem; padding: .6rem .8rem; border-radius: .6rem; background: var(--marron); color: var(--pla);
+      display: grid; gap: .25rem; max-width: 24rem; }
+    .ficha-datos div { display: flex; justify-content: space-between; gap: 1rem; font-size: 1.05rem; }
+    .ficha-datos strong { color: var(--naranja); font-variant-numeric: tabular-nums; }
+    .ficha-datos em { font-size: .8rem; opacity: .75; }
+    #ficha details { margin-top: .8rem; max-width: 34rem; }
+    #ficha summary { font-weight: 700; font-size: 1.05rem; cursor: pointer; padding: .3rem 0; }
+    #ficha details p { margin-top: .5rem; font-size: 1rem; line-height: 1.5; }
+    .ficha-rel { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-top: .9rem; }
+    .ficha-rel span { font-size: .9rem; opacity: .7; }
+    .ficha-rel button { border: 2px solid var(--naranja); background: none; color: var(--marron); border-radius: 2rem;
+      padding: .45rem .9rem; font: inherit; font-weight: 700; font-size: .95rem; line-height: 1; }
+    .ficha-rel button.visto { border-color: rgba(48, 24, 7, .25); }
+    @media (prefers-reduced-motion: reduce) { #ficha { transition: none; } }
+
+    #btn-sonido { position: fixed; left: .7rem; top: calc(.7rem + env(safe-area-inset-top)); z-index: 11;
+      width: 2.6rem; height: 2.6rem; border-radius: 50%; border: 0; background: rgba(0, 0, 0, .55); color: #fff; font-size: 1.15rem; }
+
+    /* ── Calibración: abajo, bajo y translúcido para seguir viendo la pieza ── */
+    #btn-cal { position: fixed; right: .7rem; bottom: calc(.7rem + env(safe-area-inset-bottom)); z-index: 21;
+      border: 0; border-radius: .5rem; padding: .55rem .8rem; background: rgba(0, 0, 0, .6); color: #fff; font-size: .85rem; }
+    #panel { position: fixed; left: 0; right: 0; bottom: 0; z-index: 22; max-height: 40vh; overflow-y: auto;
+      padding: .6rem .9rem calc(.7rem + env(safe-area-inset-bottom)); background: var(--velo); color: #fff;
+      font-size: .74rem; line-height: 1.3; border-radius: .8rem .8rem 0 0; }
+    #panel header { display: flex; align-items: center; gap: .6rem; }
+    #panel header strong { font-size: .85rem; color: var(--naranja); }
+    #panel header span { flex: 1; opacity: .7; font-variant-numeric: tabular-nums; }
+    #panel header button { background: none; border: 0; color: #fff; font-size: 1.1rem; padding: .1rem .4rem; }
+    .cal-grilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .15rem .9rem; }
+    #panel label { display: block; margin-top: .35rem; }
+    #panel .valor { float: right; font-variant-numeric: tabular-nums; color: var(--naranja); }
+    #panel input[type=range] { width: 100%; accent-color: var(--naranja); }
+    .cal-fila { display: flex; flex-wrap: wrap; gap: .1rem .9rem; margin-top: .4rem; align-items: center; }
+    .cal-vistas span { opacity: .7; }
+    #panel .chk { display: flex; gap: .35rem; align-items: center; margin-top: 0; }
+    #panel .acciones { display: flex; gap: .5rem; margin-top: .6rem; }
+    #panel .acciones button { flex: 1; border: 0; border-radius: .45rem; padding: .5rem; background: var(--naranja);
+      color: var(--marron); font-weight: 700; font-size: .78rem; }
+    #panel .acciones button.sec { background: rgba(255, 255, 255, .18); color: #fff; }
+    #panel pre { margin-top: .5rem; padding: .5rem; background: rgba(255, 255, 255, .08); border-radius: .4rem;
+      font-size: .66rem; white-space: pre-wrap; display: none; }
+  </style>
+</head>
+
+<body>
+  <div id="inicio">
+    <img src="./assets/logo.png" alt="airux, apicultura con datos" />
+    <p>Apuntá la cámara a la tapa de la colmena, desde unos 20 cm, y tocá sus partes para descubrirlas.</p>
+    <button id="btn-empezar">Abrir la cámara</button>
+  </div>
+
+  <div id="pista" hidden>Apuntá a la tapa de la colmena</div>
+  <div id="contador" hidden></div>
+  <button id="btn-sonido" aria-label="Silenciar" hidden>🔊</button>
+  <div id="ficha" role="dialog" aria-label="Información de la parte" aria-live="polite" hidden></div>
+  <button id="btn-cal" hidden>Calibrar</button>
+  <div id="panel" role="dialog" aria-label="Calibración" hidden></div>
+
+  <!-- filterMinCF / filterBeta: más bajos = menos temblor pero más retraso.
+       Con un marker chico (4,6 cm) conviene priorizar estabilidad. -->
+  <a-scene
+    mindar-image="imageTargetSrc: ./targets/tapa.mind; autoStart: false; maxTrack: 1;
+                  uiLoading: no; uiScanning: no; uiError: no;
+                  filterMinCF: 0.0001; filterBeta: 10; warmupTolerance: 5; missTolerance: 10"
+    renderer="colorManagement: true; antialias: true; alpha: true"
+    xr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false">
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+    <a-entity light="type: ambient; intensity: 0.9"></a-entity>
+    <a-entity light="type: directional; intensity: 0.8" position="0.3 1 0.6"></a-entity>
+    <!-- Target = cara superior de la tapa. La colmena la arma el componente colmena-edu (src/main.js). -->
+    <a-entity id="target" mindar-image-target="targetIndex: 0"></a-entity>
+  </a-scene>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
