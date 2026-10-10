@@ -1,0 +1,29 @@
+--- src/main.js
++++ src/main.js
+@@ -151,14 +160,23 @@
+ function alTocar(raycaster) {
+   if (!target.object3D.visible || !comp()) return;
+   const parte = comp().colmena.elegir(raycaster);
+-  if (parte) mostrarPunto(parte.id);
+-  else { comp().vuelo.cancelar(); ficha.cerrar(); comp().colmena.resaltar(null); }
++  if (parte) { mostrarPunto(parte.id); return; }
++  // Flores: no tienen pieza física; se destaca una abeja que va a la flor tocada y vuelve con polen
++  const flor = v1()?.elegirFlor(raycaster) ?? -1;
++  if (flor >= 0) { mostrarPunto('flores'); v1().destacarFlor(flor); return; }
++  comp().vuelo.cancelar(); ficha.cerrar(); comp().colmena.resaltar(null);
+ }
+ 
++ui.sonido.addEventListener('click', () => {
++  Zumbido.activo = !Zumbido.activo;
++  ui.sonido.textContent = Zumbido.activo ? '🔊' : '🔇';
++  ui.sonido.setAttribute('aria-label', Zumbido.activo ? 'Silenciar' : 'Activar sonido');
++});
++
+ /* Panel de calibración */
+ crearPanel({
+   panel: ui.panel, boton: ui.calibrar, cfg, original: { ...CALIBRACION }, vistas: VISTAS_INICIALES,
+-  alCambiar: () => comp()?.colmena.colocar(cfg),
++  alCambiar: () => { comp()?.colmena.colocar(cfg); recalibrarV1(); },
+   alVer: (vista, si) => {
+     const c = comp()?.colmena;
+     if (!c) return;

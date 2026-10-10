@@ -1,0 +1,172 @@
+/* Arranque de la experiencia.
+
+   Estados: inicio → buscando la tapa → explorando ⇄ ficha (la ficha llega en el paso siguiente;
+   por ahora, tocar una parte la resalta y muestra su nombre). No hay estado final.
+
+   A-Frame y MindAR se cargan antes como <script> clásicos; este módulo usa su THREE global
+   (AFRAME.THREE) y nunca importa three por su cuenta. */
+import { CALIBRACION, MODO_DESARROLLO, MARKER_MM } from './config.js';
+import { Colmena } from './colmena/piezas.js';
+import { escucharToques } from './interaccion/toque.js';
+import { crearPanel } from './ui/calibracion.js';
+import { estado, cargarPuntos } from './estado.js';
+import { crearFicha } from './ui/ficha.js';
+import { crearContador } from './ui/contador.js';
+import { generarFotos } from './colmena/fotos.js';
+import { Vuelo } from './interaccion/vuelo.js';
+import './v1/escena-v1.js';                 // registra el componente escena-v1 (abejas, flores, logo)
+import { Zumbido } from './v1/sonido.js';
+
+const THREE = AFRAME.THREE;
+const cfg = { ...CALIBRACION };
+
+/* ?debug en la URL arranca con oclusores y ejes visibles: sirve para probar sin la colmena
+   (con una foto de la tapa): los oclusores son invisibles y sin la pieza delante no se ve la colmena. */
+const VISTAS_INICIALES = location.search.includes('debug') ? { oclusores: true, ayudas: true } : {};
+
+const $ = (s) => document.querySelector(s);
+const escena = $('a-scene');
+const target = $('#target');
+const ui = {
+  inicio: $('#inicio'), mensaje: $('#inicio p'), empezar: $('#btn-empezar'),
+  pista: $('#pista'), calibrar: $('#btn-cal'), panel: $('#panel'),
+  ficha: $('#ficha'), contador: $('#contador'), sonido: $('#btn-sonido'),
+};
+
+/* Componente que vive en el target de MindAR: arma la colmena y la anima */
+AFRAME.registerComponent('colmena-edu', {
+  init() {
+    this.raiz = new THREE.Group();            // espacio de la tapa (ver config.js)
+    this.el.object3D.add(this.raiz);
+    this.colmena = new Colmena(this.raiz);
+    this.vuelo = new Vuelo(this.el.sceneEl);
+    this.fotos = new Map();
+    this.fps = { n: 0, t: 0, valor: 0 };
+    this.distCm = 0;
+    this.tmp = { p: new THREE.Vector3(), q: new THREE.Quaternion(), s: new THREE.Vector3(), cam: new THREE.Vector3() };
+    this.colmena.cargar()
+      .then(() => {
+        this.colmena.colocar(cfg);
+        this.fotos = generarFotos(this.colmena, [...this.colmena.partes.keys()]);
+        if (VISTAS_INICIALES.oclusores) this.colmena.verOclusores(true);
+        if (VISTAS_INICIALES.ayudas) this.colmena.verAyudas(true);
+      })
+      .catch((e) => { console.error(e); avisar('No se pudieron cargar las piezas: ' + e.message); });
+  },
+
+  tick(_, dtMs) {
+    const dt = Math.min(dtMs || 16, 50) / 1000;
+    const f = this.fps; f.n++; f.t += dt;
+    if (f.t >= 0.5) { f.valor = Math.round(f.n / f.t); f.n = 0; f.t = 0; }
+    this.colmena.tick(dt);
+    this.vuelo.tick(dt);
+
+    // Distancia cámara–tapa, para el panel (en u → cm)
+    if (this.el.object3D.visible) {
+      const { p, q, s, cam } = this.tmp;
+      this.el.object3D.matrixWorld.decompose(p, q, s);
+      this.el.sceneEl.camera.getWorldPosition(cam);
+      this.distCm = Math.round(p.distanceTo(cam) / (s.x || 1) * MARKER_MM / 10);
+    }
+  },
+});
+
+const comp = () => target.components['colmena-edu'];
+const v1 = () => target.components['escena-v1'];
+// Se agregan acá porque los módulos corren después de parsear el HTML
+target.setAttribute('colmena-edu', '');
+target.setAttribute('escena-v1', '');
+const recalibrarV1 = () => v1()?.recalibrar(cfg);
+if (escena.hasLoaded) recalibrarV1(); else escena.addEventListener('loaded', recalibrarV1, { once: true });
+
+/* Avisos: en el inicio si todavía se ve; si la cámara ya está abierta, en la pista de abajo */
+function avisar(texto) {
+  ui.mensaje.textContent = texto;
+  if (ui.inicio.classList.contains('oculto')) { ui.pista.textContent = texto; ui.pista.hidden = false; }
+}
+
+/* Inicio: el toque del botón habilita la cámara (y en el paso del sonido, el audio de iOS) */
+ui.empezar.addEventListener('click', async () => {
+  Zumbido.iniciar();                         // dentro del toque: si no, iOS no deja sonar el audio
+  ui.empezar.disabled = true;
+  ui.empezar.textContent = 'Abriendo cámara…';
+  // Un .mind ausente rompe MindAR con un error críptico de msgpack: se chequea antes
+  try {
+    const r = await fetch('./targets/tapa.mind', { cache: 'no-store' });
+    const largo = (await r.clone().arrayBuffer()).byteLength;
+    const tipo = r.headers.get('content-type') || '';
+    if (!r.ok || tipo.includes('text/html') || largo < 2000) {
+      throw new Error(`targets/tapa.mind no es válido (HTTP ${r.status}, ${largo} bytes)`);
+    }
+  } catch (e) {
+    console.error(e);
+    avisar('Falta el marker compilado: ' + e.message);
+    ui.empezar.disabled = false; ui.empezar.textContent = 'Reintentar';
+    return;
+  }
+  if (!escena.hasLoaded) await new Promise((r) => escena.addEventListener('loaded', r, { once: true }));
+  escena.systems['mindar-image-system'].start();
+});
+
+escena.addEventListener('arReady', () => {
+  ui.inicio.classList.add('oculto');
+  ui.pista.hidden = false;
+  ui.contador.hidden = false;
+  ui.sonido.hidden = false;
+  if (MODO_DESARROLLO) ui.calibrar.hidden = false;
+  escucharToques(escena, alTocar);
+});
+escena.addEventListener('arError', () => {
+  ui.empezar.disabled = false; ui.empezar.textContent = 'Reintentar';
+  avisar('No se pudo abrir la cámara. La página tiene que estar en HTTPS y hay que dar permiso de cámara.');
+});
+target.addEventListener('targetFound', () => (ui.pista.hidden = true));
+target.addEventListener('targetLost', () => (ui.pista.hidden = false));
+
+/* Explorando: tocar una parte la resalta, abre su ficha y lanza una copia de la pieza que vuela
+   hasta la foto de la ficha. Tocar afuera cierra todo. */
+const sinMovimiento = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+cargarPuntos()
+  .then(() => crearContador(ui.contador))
+  .catch((e) => console.error('No se pudieron cargar los contenidos:', e));
+
+const ficha = crearFicha(ui.ficha, {
+  alAbrirRelacionado: (id) => mostrarPunto(id),
+  alCerrar: () => comp()?.colmena.resaltar(null),
+});
+
+/* Resalta la parte (si el punto es una parte tocable), lo marca como descubierto, abre su ficha
+   y, si la pieza está a la vista, la hace volar hasta la foto */
+function mostrarPunto(id) {
+  const c = comp();
+  const esParte = !!c?.colmena.partes.has(id);
+  c?.vuelo.cancelar();
+  c?.colmena.resaltar(esParte ? id : null);
+  estado.descubrir(id);
+  ficha.abrir(id, { foto: esParte ? c.fotos.get(id) : null });
+  escena.emit('parte-tocada', { id });
+  const rect = ficha.rectFoto();
+  if (!rect) return;
+  if (sinMovimiento || !target.object3D.visible) ficha.revelarFoto();
+  else c.vuelo.lanzar(c.colmena, id, rect, ficha.revelarFoto);
+}
+
+function alTocar(raycaster) {
+  if (!target.object3D.visible || !comp()) return;
+  const parte = comp().colmena.elegir(raycaster);
+  if (parte) mostrarPunto(parte.id);
+  else { comp().vuelo.cancelar(); ficha.cerrar(); comp().colmena.resaltar(null); }
+}
+
+/* Panel de calibración */
+crearPanel({
+  panel: ui.panel, boton: ui.calibrar, cfg, original: { ...CALIBRACION }, vistas: VISTAS_INICIALES,  alCambiar: () => comp()?.colmena.colocar(cfg),
+  alVer: (vista, si) => {
+    const c = comp()?.colmena;
+    if (!c) return;
+    ({ oclusores: () => c.verOclusores(si), zonas: () => c.verZonas(si),
+      interior: () => c.verInterior(si), ayudas: () => c.verAyudas(si) })[vista]();
+  },
+  info: () => ({ fps: comp()?.fps.valor ?? 0, distCm: target.object3D.visible ? comp()?.distCm : 0 }),
+});
