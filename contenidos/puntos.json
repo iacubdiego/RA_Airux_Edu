@@ -1,0 +1,114 @@
+{
+  "_nota": "BORRADOR: textos sin validar. 'acceso' dice cómo se llega a cada punto: toque (sobre la pieza o el panel solar virtual), rayosx (interior, próximo paso), escena (flores, próximo paso) o ficha (desde 'relacionados' de otra ficha). 'dato' toma valores de src/datos.js.",
+  "puntos": [
+    {
+      "id": "tapa", "grupo": "colmena", "acceso": "toque", "esencial": false,
+      "nombre": "Tapa",
+      "simple": "El techo de la colmena. La protege del sol, la lluvia y el frío.",
+      "saberMas": [
+        "Las abejas sellan las rendijas entre la tapa y el cuerpo con propóleo, una resina que juntan de los brotes de los árboles.",
+        "El propóleo tapa agujeros y además frena hongos y bacterias. Por eso a veces cuesta despegar la tapa."
+      ]
+    },
+    {
+      "id": "cuerpo", "grupo": "colmena", "acceso": "toque", "esencial": false,
+      "nombre": "Cuerpo",
+      "simple": "La casa de la colonia. Adentro viven miles de abejas.",
+      "saberMas": [
+        "En una colmena de cuadros, la caja de abajo es la cámara de cría: ahí la reina pone los huevos. Para la miel, el apicultor suma cajas arriba, llamadas alzas.",
+        "La entrada, la piquera, está abajo. Ahí hacen guardia las obreras guardianas, que reconocen por el olor a las abejas de su colmena."
+      ],
+      "relacionados": ["marcos"]
+    },
+    {
+      "id": "marcos", "grupo": "colmena", "acceso": "rayosx", "esencial": false,
+      "nombre": "Marcos",
+      "simple": "Paredes de madera que el apicultor puede sacar sin romper nada.",
+      "saberMas": [
+        "Antes, para sacar la miel había que romper el panal. Los marcos móviles, de mediados del siglo XIX, permiten revisar la colmena y cosechar sin destruirla.",
+        "Entre marco y marco queda un hueco justo, el espacio de abeja, que las abejas dejan libre para circular.",
+        "En esta colmena uno de los marcos es un alimentador: un recipiente donde el apicultor deja jarabe cuando falta comida."
+      ],
+      "relacionados": ["panal"]
+    },
+    {
+      "id": "panal", "grupo": "colmena", "acceso": "rayosx", "esencial": true,
+      "nombre": "Panal",
+      "simple": "Celdas de cera de seis lados, hechas por las obreras. Ahí guardan la miel.",
+      "saberMas": [
+        "Las obreras jóvenes fabrican la cera con unas glándulas de su abdomen. El hexágono usa poca cera y no deja huecos entre celda y celda.",
+        "La miel es néctar al que las abejas le sacan agua hasta que queda espeso. Cuando está lista, tapan la celda con cera.",
+        "En las celdas también guardan polen y crían a las abejas nuevas."
+      ],
+      "relacionados": ["cria_reina", "flores"]
+    },
+    {
+      "id": "cria_reina", "grupo": "colmena", "acceso": "rayosx", "esencial": true,
+      "nombre": "Cría y reina",
+      "simple": "La reina pone los huevos. Las obreras cuidan a las crías.",
+      "saberMas": [
+        "Hay una sola reina por colonia. En plena temporada puede poner más de mil huevos por día.",
+        "Las obreras son hembras y cambian de trabajo con la edad: limpian, alimentan a la cría, construyen panal, cuidan la entrada y, al final, salen a buscar néctar y polen.",
+        "Los zánganos son los machos. No pican ni juntan comida."
+      ]
+    },
+    {
+      "id": "soporte", "grupo": "colmena", "acceso": "toque", "esencial": false,
+      "nombre": "Soporte",
+      "simple": "Levanta la colmena del suelo, lejos de la humedad.",
+      "saberMas": [
+        "Separar la colmena del piso evita la humedad y que suban hormigas y otros bichos.",
+        "También le hace más cómodo el trabajo al apicultor, que no tiene que agacharse tanto."
+      ],
+      "relacionados": ["celdas"]
+    },
+    {
+      "id": "flores", "grupo": "colmena", "acceso": "escena", "esencial": true,
+      "nombre": "Flores",
+      "simple": "Las abejas llevan polen de flor en flor. Así las plantas dan frutos y semillas.",
+      "saberMas": [
+        "Las pecoreadoras buscan néctar, que es azúcar para hacer miel, y polen, que es la proteína con la que alimentan a la cría.",
+        "Al pasar de una flor a otra, el polen que se les pega en el cuerpo fecunda las flores. Eso es la polinización.",
+        "Muchos de los alimentos que comemos dependen de ella."
+      ]
+    },
+    {
+      "id": "celdas", "grupo": "airux", "acceso": "toque", "esencial": true,
+      "nombre": "Celdas de carga",
+      "simple": "La colmena se pesa todo el tiempo. Más peso, más miel.",
+      "saberMas": [
+        "Las celdas de carga son sensores que se doblan apenas con el peso y lo convierten en una señal eléctrica.",
+        "A la mañana el peso baja, cuando salen las pecoreadoras. A la tarde sube, cuando vuelven cargadas de néctar.",
+        "Mirando el peso, el apicultor sabe cómo está la colmena y cuándo cosechar, sin abrirla."
+      ],
+      "datos": [{ "clave": "peso_kg", "etiqueta": "Peso ahora", "unidad": "kg" }],
+      "relacionados": ["caja", "flores"]
+    },
+    {
+      "id": "caja", "grupo": "airux", "acceso": "toque", "esencial": false,
+      "nombre": "Caja estanca",
+      "simple": "Adentro está la electrónica de Airux, a salvo del agua.",
+      "saberMas": [
+        "Una placa lee los sensores y los guarda hasta mandarlos. La batería le da energía de día y de noche.",
+        "Los datos salen por radio LoRa (de long range, largo alcance): mensajes chicos y espaciados que llegan a varios kilómetros gastando muy poca energía. Una antena receptora los pasa a internet, y de ahí al celular del apicultor.",
+        "La caja es estanca: está cerrada para que no entre agua ni polvo, porque la colmena pasa todo el año a la intemperie."
+      ],
+      "datos": [
+        { "clave": "bateria_pct", "etiqueta": "Batería", "unidad": "%" },
+        { "clave": "ultimo_envio_min", "etiqueta": "Último envío", "formato": "hace {v} min" }
+      ],
+      "relacionados": ["panel_solar"]
+    },
+    {
+      "id": "panel_solar", "grupo": "airux", "acceso": "toque", "esencial": false,
+      "nombre": "Panel solar",
+      "simple": "El sol carga la batería. En el campo no hace falta enchufe.",
+      "saberMas": [
+        "Como la radio LoRa que manda los datos gasta muy poca energía, alcanza con un panel chico para que la colmena funcione todo el año.",
+        "El panel va apoyado al costado de la colmena, mirando al sol."
+      ],
+      "datos": [{ "clave": "solar_w", "etiqueta": "Carga ahora", "unidad": "W" }],
+      "relacionados": ["caja"]
+    }
+  ]
+}
