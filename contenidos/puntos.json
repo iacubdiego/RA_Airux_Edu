@@ -18,6 +18,7 @@
         "En una colmena de cuadros, la caja de abajo es la cámara de cría: ahí la reina pone los huevos. Para la miel, el apicultor suma cajas arriba, llamadas alzas.",
         "La entrada, la piquera, está abajo. Ahí hacen guardia las obreras guardianas, que reconocen por el olor a las abejas de su colmena."
       ],
+      "acciones": [{ "id": "calor", "etiqueta": "¿Qué pasa si hace calor?" }],
       "relacionados": ["marcos"]
     },
     {
@@ -50,7 +51,8 @@
         "Hay una sola reina por colonia. En plena temporada puede poner más de mil huevos por día.",
         "Las obreras son hembras y cambian de trabajo con la edad: limpian, alimentan a la cría, construyen panal, cuidan la entrada y, al final, salen a buscar néctar y polen.",
         "Los zánganos son los machos. No pican ni juntan comida."
-      ]
+      ],
+      "acciones": [{ "id": "ciclo", "etiqueta": "Ver de huevo a abeja" }]
     },
     {
       "id": "soporte", "grupo": "colmena", "acceso": "toque", "esencial": false,
@@ -70,7 +72,8 @@
         "Las pecoreadoras buscan néctar, que es azúcar para hacer miel, y polen, que es la proteína con la que alimentan a la cría.",
         "Al pasar de una flor a otra, el polen que se les pega en el cuerpo fecunda las flores. Eso es la polinización.",
         "Muchos de los alimentos que comemos dependen de ella."
-      ]
+      ],
+      "acciones": [{ "id": "fruto", "etiqueta": "Ver cómo se forma un fruto" }]
     },
     {
       "id": "celdas", "grupo": "airux", "acceso": "toque", "esencial": true,
@@ -82,6 +85,7 @@
         "Mirando el peso, el apicultor sabe cómo está la colmena y cuándo cosechar, sin abrirla."
       ],
       "datos": [{ "clave": "peso_kg", "etiqueta": "Peso ahora", "unidad": "kg" }],
+      "acciones": [{ "id": "dia", "etiqueta": "Ver un día de la colmena" }],
       "relacionados": ["caja", "flores"]
     },
     {
