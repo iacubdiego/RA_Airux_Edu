@@ -5,7 +5,7 @@ import { obtenerDatos } from '../datos.js';
 
 const fmtNum = (v) => (typeof v === 'number' ? v.toLocaleString('es-AR', { maximumFractionDigits: 1 }) : v);
 
-export function crearFicha(el, { alAbrirRelacionado, alCerrar }) {
+export function crearFicha(el, { alAbrirRelacionado, alCerrar, alAccion }) {
   let actual = null;
 
   /* foto: dataURL de la pieza (si es una parte). Arranca invisible: la revela revelarFoto(),
@@ -63,6 +63,22 @@ export function crearFicha(el, { alAbrirRelacionado, alCerrar }) {
       }).catch((e) => { caja.textContent = 'No se pudieron leer los datos.'; console.error(e); });
     }
 
+    // Acciones: botones que lanzan una animación (día en el peso, ventilación...). Lo que la
+    // animación quiera mostrar en la ficha (un gráfico, un dibujo) va en .ficha-extra.
+    if (p.acciones?.length) {
+      const nav = document.createElement('div');
+      nav.className = 'ficha-acciones';
+      for (const a of p.acciones) {
+        const b = document.createElement('button');
+        b.textContent = '▶ ' + a.etiqueta;
+        b.onclick = () => alAccion?.(a.id, id);
+        nav.append(b);
+      }
+      const extra = document.createElement('div');
+      extra.className = 'ficha-extra';
+      el.append(nav, extra);
+    }
+
     if (p.saberMas?.length) {
       const det = document.createElement('details');
       const sum = document.createElement('summary');
@@ -116,7 +132,9 @@ export function crearFicha(el, { alAbrirRelacionado, alCerrar }) {
     return new DOMRect(r.left, r.top - falta, r.width, r.height);
   }
 
+  function extra() { return el.querySelector('.ficha-extra'); }
+
   function revelarFoto() { el.querySelector('.ficha-foto')?.classList.add('visible'); }
 
-  return { abrir, cerrar, rectFoto, revelarFoto, get actual() { return actual; } };
+  return { abrir, cerrar, rectFoto, revelarFoto, extra, get actual() { return actual; } };
 }
