@@ -8,12 +8,18 @@
 
    Los valores de diseño (cantidad de abejas, flores, tiempos) quedan acá como constantes: ya no
    están en el panel de calibración. */
-import { PALETA } from '../config.js';
+import { PALETA, PIEZAS } from '../config.js';
+import { anclaje } from '../interaccion/anclaje.js';
 import { Zumbido } from './sonido.js';
 
 const THREE = AFRAME.THREE;
 const MAX_ABEJAS = 150;
 const MAX_FLORES = 30;
+// (nuevo) Polinización: visitas para que una flor se vuelva fruto, tamaño (u) y tiempos (s)
+const FRUTO = { visitas: 10, radio: 0.075, duracion: 14, espera: 20 };
+// (nuevo) Césped en la mesa (u): matas repartidas en un rectángulo alrededor del eje, salvo un
+// rectángulo libre donde está la colmena (con la caja y las celdas) y el lugar del panel solar
+const CESPED = { matas: 170, anchoX: 2.6, anchoY: 1.8, libreX: 0.64, libreY: 0.74, panelRadio: 0.3 };
 
 const CONFIG = {
   // Pieza física
@@ -114,7 +120,7 @@ function bezier(p0, p1, p2, p3, t, out) {
 }
 
 /* Geometría de una abeja, largo ≈ 1. Ejes locales: +Z adelante, +Y arriba, +X derecha. */
-function geometriaAbeja() {
+export function geometriaAbeja() {
   const NARANJA = 0, MARRON = 1;   // tipo de cada vértice; los colores se aplican en pintarAbeja()
 
   const cuerpo = new THREE.SphereGeometry(0.5, 18, 12).toNonIndexed();
@@ -164,7 +170,7 @@ function pintarAbeja(geo) {
 }
 
 /* Ala derecha: elipse acostada en el plano XZ, con la raíz en el origen y la punta hacia +X */
-function geometriaAla() {
+export function geometriaAla() {
   const g = new THREE.CircleGeometry(0.5, 14);
   g.scale(0.58, 0.26, 1);
   g.translate(0.29, 0, 0);
@@ -338,6 +344,9 @@ AFRAME.registerComponent('escena-v1', {
       ESPEJO: new THREE.Matrix4().makeScale(-1, 1, 1), CERO: new THREE.Matrix4().makeScale(0, 0, 0),
     };
     this.simT = 0; this.realT = 0; this.ultimoAudio = 0; this.perdidoSeg = 0;
+    this.actividad = 1;                  // (nuevo) fracción de abejas que salen en cada vuelta (día en el peso)
+    this.visitas = [];                   // (nuevo) visitas por flor, para la polinización
+    this.fruto = null; this.enfriaFruto = 8;
     this.fps = { n: 0, t: 0, valor: 0 };
   },
 
@@ -774,6 +783,24 @@ AFRAME.registerComponent('escena-v1', {
           (0.1 + 0.22 * rnd()) * tam * (1 - 0.4 * r / (0.3 * tam)));
       }
     }
+    // (nuevo) Césped: matas de 3 a 7 briznas por toda la mesa
+    for (let k = 0; k < CESPED.matas; k++) {
+      let x = 0, y = 0, libre = false;
+      for (let intento = 0; intento < 20 && !libre; intento++) {
+        x = C.ejeX + (rnd() * 2 - 1) * CESPED.anchoX;
+        y = C.ejeY + (rnd() * 2 - 1) * CESPED.anchoY;
+        libre = (Math.abs(x - C.ejeX) > CESPED.libreX || Math.abs(y - C.ejeY) > CESPED.libreY)
+          && (this.exclusiones || []).every(([ex, ey, er]) => Math.hypot(x - ex, y - ey) > er);
+      }
+      if (!libre) continue;
+      const nB = 3 + Math.floor(rnd() * 5);
+      for (let j = 0; j < nB; j++) {
+        const r = 0.05 * tam * Math.sqrt(rnd()), a = rnd() * Math.PI * 2;
+        brizna(new THREE.Vector3(x + r * Math.cos(a), y + r * Math.sin(a), zMesa), rnd() * Math.PI * 2,
+          (0.05 + 0.12 * rnd()) * tam);
+      }
+    }
+
     this.jardin.geometry.dispose();
     this.jardin.geometry = mz.geometria();
   },
@@ -900,7 +927,8 @@ AFRAME.registerComponent('escena-v1', {
     this.realT += dt;
     this.contarFps(dt);
 
-    const visible = this.el.object3D.visible;     // MindAR lo apaga al perder el target
+    // MindAR lo apaga al perder el target; (nuevo) anclaje.oculto, si la tapa está inclinada
+    const visible = this.el.object3D.visible && !anclaje.oculto;
     if (visible) {
       // Si la tapa estuvo fuera de cuadro un buen rato, la animación arranca de nuevo
       if (CONFIG.reiniciarTrasSeg > 0 && this.perdidoSeg > CONFIG.reiniciarTrasSeg) this.simT = 0;
@@ -949,10 +977,20 @@ AFRAME.registerComponent('escena-v1', {
         : ini * 0.15 + CONFIG.intervaloSeg * (i - ini + 1 + 0.5 * (b.n0 - 0.5));
       const edad = this.simT - nace;
       const t = mod(edad, ciclo);
+      // (nuevo) Actividad: al empezar cada vuelta se decide si esta abeja sale o se queda adentro.
+      // Se decide una vez por vuelta, así ninguna desaparece en el aire si la actividad baja.
+      if (edad >= 0) {
+        const vuelta = Math.floor(edad / ciclo);
+        if (b.vuelta !== vuelta) {
+          b.vuelta = vuelta;
+          const azar = Math.abs(Math.sin(i * 12.9898 + vuelta * 78.233) * 43758.5453) % 1;
+          b.sale = azar < this.actividad;
+        }
+      }
       // (nuevo) Abeja destacada: la primera que salga hacia la flor tocada
       const dest = this.destacada;
       if (dest && dest.i < 0 && edad >= 0 && t < b.vj.tS + b.vj.tI && this.florDe(b) === dest.flor) dest.i = i;
-      if (edad < 0 || t >= L) {
+      if (edad < 0 || t >= L || !b.sale) {
         if (dest && dest.i === i && dest.volo) this.terminarDestacada();
         if (dest && dest.i < 0 && edad >= 0 && candidatoAdentro < 0) candidatoAdentro = i;
         this.cuerpos.setMatrixAt(i, CERO);
@@ -960,6 +998,10 @@ AFRAME.registerComponent('escena-v1', {
         continue;
       }
       volando++;
+      // (nuevo) Polinización: contar cuándo llega a la flor
+      const llega = b.vj.tS + b.vj.tI;
+      if (b.tPrev !== undefined && b.tPrev < llega && t >= llega) this.visitar(this.florDe(b));
+      b.tPrev = t;
 
       this.posicion(b, t, P);
       b.posada = b._posada;
@@ -1008,6 +1050,7 @@ AFRAME.registerComponent('escena-v1', {
       this.abejas[candidatoAdentro].fl = (dest.flor + 0.5) / this.flores.length;
       dest.i = candidatoAdentro;
     }
+    this.actualizarFruto(dt);
     this.actualizarLogo(visible, dt);
     this.cuerpos.count = n;
     this.alas.count = 2 * n;
@@ -1061,6 +1104,10 @@ AFRAME.registerComponent('escena-v1', {
     CONFIG.ejeX = cal.ejeXmm / CONFIG.markerMm;
     CONFIG.ejeY = cal.ejeYmm / CONFIG.markerMm;
     CONFIG.altoColmenaMm = cal.altoColmenaMm;
+    // El panel solar virtual (piezas.js) va en el piso: ahí no crece césped
+    const L = cal.cajaLado < 0 ? -1 : 1, P = PIEZAS.panel;
+    this.exclusiones = P ? [[(cal.ejeXmm - L * P.pisoXmm) / CONFIG.markerMm,
+      (cal.ejeYmm + L * P.pisoYmm) / CONFIG.markerMm, CESPED.panelRadio]] : [];
     if (this.jardin) this.crearFlores();
     this.terminarDestacada();            // los índices de flores cambian
   },
@@ -1132,6 +1179,79 @@ AFRAME.registerComponent('escena-v1', {
     for (const m of this.polen) {
       m.visible = conPolen;
       if (conPolen) { m.matrix.multiplyMatrices(M, m.userData.local); m.matrixWorldNeedsUpdate = true; }
+    }
+  },
+
+  /* Día en el peso: 0 = nadie sale (noche), 1 = salen todas */
+  setActividad(k) { this.actividad = clamp(k, 0, 1); },
+
+  /* ── Polinización: cada tanto, una flor muy visitada se vuelve fruto ──────────────
+     Las visitas a la flor tocada (la de la abeja destacada) cuentan triple. Un solo fruto a la
+     vez y un rato de espera entre uno y otro, para que se entienda qué pasó. */
+  visitar(f) {
+    this.visitas[f] = (this.visitas[f] || 0) + (this.destacada?.flor === f ? 3 : 1);
+    if (!this.fruto && this.enfriaFruto <= 0 && this.visitas[f] >= FRUTO.visitas) this.crearFruto(f);
+  },
+
+  /* Para la acción de la ficha: la próxima visita a esa flor la convierte en fruto */
+  forzarFruto(f) {
+    if (f < 0 || this.fruto) return;
+    this.visitas[f] = FRUTO.visitas - 1;
+    this.enfriaFruto = 0;
+  },
+
+  crearFruto(f) {
+    if (!this.frutoMalla) {
+      this.frutoMalla = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12),
+        new THREE.MeshLambertMaterial({ color: '#6aa84f' }));
+      this.escena.add(this.frutoMalla);
+      const geoP = new THREE.CircleGeometry(1, 6);
+      geoP.scale(1, 0.55, 1);
+      const matP = new THREE.MeshLambertMaterial({ color: '#f7d9e3', side: THREE.DoubleSide });
+      this.petalos = Array.from({ length: 8 }, () => {
+        const m = new THREE.Mesh(geoP, matP);
+        m.scale.setScalar(0.035);
+        this.escena.add(m);
+        return m;
+      });
+    }
+    const fl = this.flores[f];
+    this.fruto = { f, t: 0, caida: this.petalos.map((_, k) => ({
+      a: (k / 8) * Math.PI * 2, giro: 2 + 3 * Math.random(), deriva: 0.05 + 0.1 * Math.random() })) };
+    this.frutoMalla.visible = true;
+    this.petalos.forEach((m) => (m.visible = true));
+    this.el.emit('fruto', { flor: f });           // main.js lo usa para avisar en la ficha
+    this.zMesaFruto = fl.base ? fl.base.z : fl.cabeza.z - 0.6;
+  },
+
+  actualizarFruto(dt) {
+    this.enfriaFruto -= dt;
+    const fr = this.fruto;
+    if (!fr) return;
+    fr.t += dt;
+    const fl = this.flores[fr.f];
+    if (!fl) { this.fruto = null; return; }
+    const P = this.v.frutoP || (this.v.frutoP = new THREE.Vector3());
+    vaiven(fl.cabeza, fl.flex, this.realT, P);
+    // El fruto crece, pasa de verde a rojo, se queda un rato y se achica
+    const T = FRUTO.duracion, t = fr.t;
+    const tam = smooth(0.5, 5, t) * (1 - smooth(T - 2, T, t));
+    this.frutoMalla.position.copy(P);
+    this.frutoMalla.scale.setScalar(Math.max(0.001, FRUTO.radio * tam));
+    this.frutoMalla.material.color.set('#6aa84f').lerp(this.v.rojo || (this.v.rojo = new THREE.Color('#d9472b')), smooth(3, 7, t));
+    // Los pétalos se caen girando hasta la mesa
+    this.petalos.forEach((m, k) => {
+      const c = fr.caida[k], u = clamp(t / 2.2, 0, 1);
+      m.visible = t < 2.6;
+      m.position.set(P.x + Math.cos(c.a) * (0.05 + c.deriva * u), P.y + Math.sin(c.a) * (0.05 + c.deriva * u),
+        P.z + (this.zMesaFruto - P.z) * u * u);
+      m.rotation.set(c.giro * t, c.giro * 0.7 * t, c.a);
+    });
+    if (t >= T) {
+      this.frutoMalla.visible = false;
+      this.visitas[fr.f] = 0;
+      this.fruto = null;
+      this.enfriaFruto = FRUTO.espera;
     }
   },
 
