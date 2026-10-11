@@ -220,7 +220,40 @@ export class Interior {
     else if (this.sacado) this.sacado.objetivo = si ? 1 : 0;
   }
 
+  /* Al terminar "de huevo a abeja" en la ficha: una abeja nueva sale del panal del marco que
+     está afuera (de la zona de cría), se aleja de la cara y sube. */
+  nacer() {
+    if (!this.sacado || this.sacado.k < 0.9 || this.nacimiento) return false;
+    const marco = this.c.marcos[this.iCentro];
+    const t = marco.geometry.boundingBox.max.x;
+    const b = abejita(2.8, false);
+    b.matrixAutoUpdate = false;
+    // Misma base que la lámina de la cara +X: u a lo largo del marco, v hacia arriba (−Z local)
+    const base = new THREE.Matrix4().makeBasis(new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, 0, -1), new THREE.Vector3(1, 0, 0))
+      .setPosition(t + 0.5, (0.5 - (CRIA.u - 0.12)) * LAMINA.ancho, LAMINA.zCentro - (CRIA.v - 0.5) * LAMINA.alto);
+    marco.add(b);
+    this.nacimiento = { b, base, t: 0, marco };
+    return true;
+  }
+
+  tickNacimiento(dt) {
+    const n = this.nacimiento;
+    if (!n) return;
+    n.t += dt;
+    const t = n.t;
+    const S = THREE.MathUtils.smoothstep;
+    const aparece = S(t, 0, 0.6), sale = S(t, 0.6, 2.0), desaparece = 1 - S(t, 2.0, 2.5);
+    // En coordenadas de la lámina: +Z sale de la cara, +Y es arriba
+    const m = new THREE.Matrix4().makeTranslation(0, 10 * sale, 8 * sale)
+      .multiply(new THREE.Matrix4().makeRotationX(0.9 * sale))   // la cabeza gira hacia afuera mientras sale
+      .scale(new THREE.Vector3().setScalar(Math.max(0.001, aparece * desaparece)));
+    n.b.matrix.multiplyMatrices(n.base, m);
+    n.b.matrixWorldNeedsUpdate = true;
+    if (t >= 2.5 || !this.sacado) { n.marco.remove(n.b); this.nacimiento = null; }
+  }
+
   tick(dt, camara) {
+    this.tickNacimiento(dt);
     const s = this.sacado;
     if (!s) return;
     const m = this.c.marcos[this.iCentro];
