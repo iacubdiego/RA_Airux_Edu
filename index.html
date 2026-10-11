@@ -60,6 +60,13 @@
     @keyframes suma { 40% { transform: scale(1.25); } }
     @media (prefers-reduced-motion: reduce) { .cont.suma { animation: none; } }
 
+    /* Día en el peso: velo de color sobre toda la pantalla (multiplica, también al video) y reloj */
+    #cielo { position: fixed; inset: 0; z-index: 5; pointer-events: none; mix-blend-mode: multiply;
+      opacity: 0; transition: opacity .4s; }
+    #reloj { position: fixed; top: calc(3.2rem + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+      z-index: 10; pointer-events: none; padding: .3rem .9rem; border-radius: 2rem; background: rgba(0, 0, 0, .6);
+      color: #fff; font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+
     /* Ficha: sube desde abajo, texto grande para que se lea a distancia en modo grupo */
     #ficha { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; max-height: 46vh; overflow-y: auto;
       padding: 1rem 1.2rem calc(1.1rem + env(safe-area-inset-bottom)); border-radius: 1.1rem 1.1rem 0 0;
@@ -83,6 +90,29 @@
     #ficha details { margin-top: .8rem; max-width: 34rem; }
     #ficha summary { font-weight: 700; font-size: 1.05rem; cursor: pointer; padding: .3rem 0; }
     #ficha details p { margin-top: .5rem; font-size: 1rem; line-height: 1.5; }
+    .ficha-acciones { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .8rem; }
+    .ficha-acciones button { border: 0; border-radius: 2rem; padding: .55rem 1rem; background: var(--naranja);
+      color: var(--marron); font: inherit; font-weight: 700; font-size: 1rem; }
+    .ficha-extra:empty { display: none; }
+    .ficha-extra { margin-top: .6rem; max-width: 34rem; }
+    .ficha-nota { font-size: .95rem; line-height: 1.45; margin-top: .4rem; }
+    .ficha-temp { display: flex; justify-content: space-between; max-width: 16rem; padding: .5rem .8rem; border-radius: .6rem;
+      background: var(--marron); color: var(--pla); font-size: 1.1rem; }
+    .ficha-temp strong { color: var(--naranja); font-variant-numeric: tabular-nums; }
+    .grafico-dia, .ciclo { width: 100%; max-width: 26rem; height: auto; display: block; }
+    .grafico-dia .todo { fill: none; stroke: rgba(48, 24, 7, .2); stroke-width: 2; }
+    .grafico-dia .hecho { fill: none; stroke: var(--naranja); stroke-width: 3; stroke-linejoin: round; }
+    .grafico-dia .punto { fill: var(--marron); }
+    .grafico-dia text { font-size: 10px; fill: rgba(48, 24, 7, .7); }
+    .ciclo .celda { fill: none; stroke: #9a6e3a; stroke-width: 4; stroke-linecap: round; }
+    .ciclo .jalea { fill: #f3e7b8; }
+    .ciclo .huevo { fill: #fffdf5; stroke: #d8cba8; }
+    .ciclo .larva { fill: none; stroke: #fffaf0; stroke-linecap: round; filter: drop-shadow(0 0 1px #b99a62); }
+    .ciclo .p-cuerpo, .ciclo .p-cabeza { fill: var(--pupa, #f5ecdc); stroke: #b99a62; }
+    .ciclo .p-ojo { fill: #301807; }
+    .ciclo .p-rayas { stroke: #301807; stroke-width: 4; opacity: 0; }
+    .ciclo .tapa { fill: none; stroke: #c99b55; stroke-width: 7; stroke-linecap: round; }
+    .ciclo .dia { font-size: 13px; font-weight: 700; fill: var(--marron); }
     .ficha-rel { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-top: .9rem; }
     .ficha-rel span { font-size: .9rem; opacity: .7; }
     .ficha-rel button { border: 2px solid var(--naranja); background: none; color: var(--marron); border-radius: 2rem;
@@ -92,6 +122,21 @@
 
     #btn-sonido { position: fixed; left: .7rem; top: calc(.7rem + env(safe-area-inset-top)); z-index: 11;
       width: 2.6rem; height: 2.6rem; border-radius: 50%; border: 0; background: rgba(0, 0, 0, .55); color: #fff; font-size: 1.15rem; }
+
+    /* Rayos X: botón arriba a la derecha y el círculo de la linterna (lo ubica rayosx.js) */
+    #btn-rayos { position: fixed; right: .7rem; top: calc(.7rem + env(safe-area-inset-top)); z-index: 11;
+      border: 2px solid var(--naranja); border-radius: 2rem; padding: .45rem .85rem; background: rgba(0, 0, 0, .55);
+      color: #fff; font: inherit; font-weight: 700; font-size: .9rem; }
+    #btn-rayos.activo { background: var(--naranja); color: var(--marron); }
+    /* Late cuando falta descubrir algo de adentro (main.js → actualizarPulsoRayos) */
+    #btn-rayos.pulsa { animation: pulsaRayos 1.4s ease-in-out infinite; }
+    @keyframes pulsaRayos { 50% { box-shadow: 0 0 0 .5rem rgba(255, 177, 41, .45); } }
+    @media (prefers-reduced-motion: reduce) { #btn-rayos.pulsa { animation: none; box-shadow: 0 0 0 .25rem rgba(255, 177, 41, .6); } }
+    /* El resto de la pantalla se oscurece un poco: así se entiende dónde mirar */
+    #linterna { position: fixed; z-index: 9; pointer-events: none; border-radius: 50%;
+      border: 3px solid var(--naranja); box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .28); }
+    #linterna span { position: absolute; left: 50%; top: 100%; transform: translate(-50%, .5rem); white-space: nowrap;
+      padding: .3rem .8rem; border-radius: 2rem; background: rgba(0, 0, 0, .65); color: #fff; font-size: .85rem; }
 
     /* ── Calibración: abajo, bajo y translúcido para seguir viendo la pieza ── */
     #btn-cal { position: fixed; right: .7rem; bottom: calc(.7rem + env(safe-area-inset-bottom)); z-index: 21;
@@ -127,8 +172,12 @@
   </div>
 
   <div id="pista" hidden>Apuntá a la tapa de la colmena</div>
+  <div id="cielo" aria-hidden="true"></div>
   <div id="contador" hidden></div>
+  <div id="reloj" hidden></div>
   <button id="btn-sonido" aria-label="Silenciar" hidden>🔊</button>
+  <button id="btn-rayos" aria-pressed="false" hidden>Rayos X</button>
+  <div id="linterna" hidden><span>Apuntá a la colmena y tocá lo que ves adentro</span></div>
   <div id="ficha" role="dialog" aria-label="Información de la parte" aria-live="polite" hidden></div>
   <button id="btn-cal" hidden>Calibrar</button>
   <div id="panel" role="dialog" aria-label="Calibración" hidden></div>
@@ -143,8 +192,9 @@
     xr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false">
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-    <a-entity light="type: ambient; intensity: 0.9"></a-entity>
-    <a-entity light="type: directional; intensity: 0.8" position="0.3 1 0.6"></a-entity>
+    <!-- Las luces tienen id porque el día en el peso (src/anim/dia.js) las cambia según la hora -->
+    <a-entity id="luz-ambiente" light="type: ambient; intensity: 0.9"></a-entity>
+    <a-entity id="luz-sol" light="type: directional; intensity: 0.8" position="0.3 1 0.6"></a-entity>
     <!-- Target = cara superior de la tapa. La colmena la arma el componente colmena-edu (src/main.js). -->
     <a-entity id="target" mindar-image-target="targetIndex: 0"></a-entity>
   </a-scene>
