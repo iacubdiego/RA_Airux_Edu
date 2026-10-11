@@ -278,5 +278,6 @@ crearPanel({
     ({ oclusores: () => c.verOclusores(si), zonas: () => c.verZonas(si),
       ayudas: () => c.verAyudas(si) })[vista]();
   },
-  info: () => ({ fps: comp()?.fps.valor ?? 0, distCm: target.object3D.visible ? comp()?.distCm : 0 }),
+  info: () => ({ fps: comp()?.fps.valor ?? 0, distCm: target.object3D.visible ? comp()?.distCm : 0,
+    inclinacion: target.object3D.visible && anclaje.inclinacion != null ? Math.round(anclaje.inclinacion) : null }),
 });
